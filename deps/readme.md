@@ -59,10 +59,11 @@ Example:
 Use the CLI wrapper `spm`:
 
 ```
-./spm install             # Download and extract all dependencies
-./spm update              # Force update all packages
-./spm update vendor/pkg   # Update one specific package
-./spm phar                # Build PHAR archive with custom stub
+./spm install                   # Download and extract all dependencies
+./spm install vendor/pkg <url>  # Install package from url with given vendor/pkg
+./spm update                    # Force update all packages
+./spm update vendor/pkg         # Update one specific package
+./spm phar                      # Build PHAR archive with custom stub
 ```
 
 ### 3. Autoloading
