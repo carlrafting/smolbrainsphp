@@ -1,0 +1,7 @@
+{
+    "symfony/console": {
+        "version": "7.3.1",
+        "sha256": "fb871f9e11b284c79d607ff86da3a65a92c83c6ad2fc93bef83f1171cbbc7486",
+        "git": false
+    }
+}
