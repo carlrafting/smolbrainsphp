@@ -100,7 +100,7 @@ chmod +x build/bundle.phar
 ./build/bundle.phar --help
 ```
 
-5. Custom PHAR stub and `main.php`
+### 5. Custom PHAR stub and `main.php`
 
 - The PHAR stub loads autoload.php and then runs `main.php`.
 - `main.php` is a minimal CLI bootstrap where you can handle commands or initialize your app.
