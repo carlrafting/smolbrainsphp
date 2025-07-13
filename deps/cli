@@ -1,0 +1,57 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/deps.php';
+
+function main(array $argv, int $argc)
+{
+    if ($argc < 2) usage();
+
+    $index = 1;
+    $args = array_slice($argv, $index);
+    $cmd = $args[0] ?? null;
+    $force = in_array('--force', $args);
+
+    $depsData = file_exists(DEPSFILE) ? json_decode(file_get_contents(DEPSFILE), true) : [];
+    $lockData = file_exists(LOCKFILE) ? json_decode(file_get_contents(LOCKFILE), true) : [];
+
+    switch ($cmd) {
+        case 'init':
+            init($args, DEPSFILE);
+            break;
+        case 'install':
+            if (count($args) < 3) usage();
+            $pkg = $args[1];
+            $url = $args[2];
+            $version = $args[3] ?? null;
+            $isGit = strpos($url, '.git') > 0;
+            $info = ['url' => $url];
+            if ($version) $info['version'] = $version;
+            $info['git'] = $isGit;
+            echo color('cyan', "Installing $pkg...\n");
+            if ($isGit) {
+                cloneGitRepository($url, $tag, $zipFile);
+                var_dump($tag, $zipFile);
+            }
+            installPackage($pkg, $info, VENDOR_DIR, $lockData, $force);
+            file_put_contents(LOCKFILE, json_encode($lockData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            break;
+        case 'update':
+            break;
+        case 'uninstall':
+            $pkg = $args[1] ?? null;
+            if (!$pkg) {
+                echo color('red', 'Package must be provided!');
+                return;
+            }
+            echo color('cyan', "Delete package directory for $pkg...");
+            uninstallPackage($pkg, VENDOR_DIR, LOCKFILE, $lockData);
+            break;
+        case 'bundle':
+            break;
+        default:
+            break;
+    }
+}
+
+main($argv, $argc);
