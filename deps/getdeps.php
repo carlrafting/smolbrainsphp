@@ -1,31 +1,58 @@
 <?php
 
-function safe_exec($cmd, &$output = null, &$exitCode = null): string {
+function safe_exec($cmd, &$output = null, &$exitCode = null): string
+{
     $output = [];
     exec($cmd . ' 2>&1', $output, $exitCode);
     return implode("\n", $output);
 }
 
-function rrmdir($dir): void {
+function deleteDirectory($dir): void
+{
     if (!is_dir($dir)) return;
     foreach (scandir($dir) as $item) {
         if ($item == '.' || $item == '..') continue;
         $path = "$dir/$item";
-        is_dir($path) ? rrmdir($path) : unlink($path);
+        is_dir($path) ? deleteDirectory($path) : unlink($path);
     }
     rmdir($dir);
 }
 
-function extractVersionFromUrl($url): string|null {
+function extractVersionFromUrl($url): string|null
+{
     if (preg_match('#/tags/(v?[0-9]+\.[0-9]+\.[0-9]+)(\.zip)?$#', $url, $matches)) {
-        return $matches[1]; // v2.9.1 or 2.9.1
+        return $matches;
     }
     return null;
 }
 
-function downloadAndExtract($name, $info, $libDir, &$lockData, $forceUpdate = false): void {
+function extractZipArchive($zipFile, $folder, $name, $version, $actualHash, &$lockData, $forceUpdate)
+{
+    $zip = new ZipArchive();
+    if ($zip->open($zipFile) === TRUE) {
+        if ($forceUpdate && is_dir($folder)) {
+            deleteDirectory($folder);
+        }
+        mkdir($folder);
+        $zip->extractTo($folder);
+        $zip->close();
+        echo "Extracted to $folder\n";
+
+        $lockData[$name] = [
+            'version' => $version,
+            'sha256' => $actualHash,
+            'git' => !empty($info['git'])
+        ];
+    } else {
+        echo "Failed to unzip $name\n";
+    }
+    unlink($zipFile);
+}
+
+function downloadAndExtract($name, $info, $libDir, &$lockData, $forceUpdate = false): void
+{
     $safeName = str_replace('/', '-', $name);
-    $version = "{$safeName}@{$info['version']}" ?? extractVersionFromUrl($info['url']);
+    $version = "{$safeName}@{$info['version']}" ?? extractVersionFromUrl($info['url'])[1];
     $folder = "$libDir/{$version}";
 
     if (!$forceUpdate && is_dir($folder)) {
@@ -52,7 +79,7 @@ function downloadAndExtract($name, $info, $libDir, &$lockData, $forceUpdate = fa
             foreach ($info['exclude'] as $pattern) {
                 $files = glob("$tmpDir/$pattern", GLOB_BRACE);
                 foreach ($files as $file) {
-                    is_dir($file) ? rrmdir($file) : unlink($file);
+                    is_dir($file) ? deleteDirectory($file) : unlink($file);
                 }
             }
         }
@@ -76,40 +103,18 @@ function downloadAndExtract($name, $info, $libDir, &$lockData, $forceUpdate = fa
             return;
         }
 
-        rrmdir($tmpDir);
+        deleteDirectory($tmpDir);
     } else {
         file_put_contents($zipFile, file_get_contents($info['url']));
     }
 
     $actualHash = hash_file('sha256', $zipFile);
-    if (!empty($info['sha256']) && strtolower($actualHash) !== strtolower($info['sha256'])) {
-        echo "Hash mismatch for $name. Expected {$info['sha256']}, got $actualHash\n";
-        unlink($zipFile);
-        return;
-    }
 
-    $zip = new ZipArchive();
-    if ($zip->open($zipFile) === TRUE) {
-        if ($forceUpdate && is_dir($folder)) {
-            rrmdir($folder);
-        }
-        mkdir($folder);
-        $zip->extractTo($folder);
-        $zip->close();
-        echo "Extracted to $folder\n";
-
-        $lockData[$name] = [
-            'version' => $version,
-            'sha256' => $actualHash,
-            'git' => !empty($info['git'])
-        ];
-    } else {
-        echo "Failed to unzip $name\n";
-    }
-    unlink($zipFile);
+    extractZipArchive($zipFile, $folder, $name, $version, $actualHash, $lockData, $forceUpdate);
 }
 
-function uninstallPackage($name, $libDir, $lockFile, &$lockData) {
+function uninstallPackage($name, $libDir, $lockFile, &$lockData)
+{
     if (!isset($lockData[$name])) {
         echo "Package $name is not installed.\n";
         return;
@@ -122,7 +127,7 @@ function uninstallPackage($name, $libDir, $lockFile, &$lockData) {
     echo $folder;
 
     if (file_exists($folder)) {
-        rrmdir($folder);
+        deleteDirectory($folder);
         echo "Removed directory: $folder\n";
     }
 
@@ -140,47 +145,48 @@ if (!is_dir($libDir)) {
     mkdir($libDir, 0777, true);
 }
 
-$arg1 = $argv[1] ?? null;
-$arg2 = $argv[2] ?? null;
+var_dump($argv, $argc);
 
-if ($arg1 === '--install' && !empty($arg2)) {
-    $packageName = $arg2;
-    $packageUrl = $argv[4] ?? null;
+$cmd = $argv[1] ?? null;
+$pkg = $argv[2] ?? null;
 
-    if ($packageUrl) {
+if ($cmd === '--add' && !empty($pkg)) {
+    $url = $argv[3] ?? null;
+
+    if (!$url) {
+        echo "Please specify a url for the package!" . PHP_EOL;
+        exit(1);
+    }
+
+    if ($url) {
         // Ad-hoc package info
-        $info = [
-            'url' => $packageUrl,
+        $deps[$pkg] = [
+            'url' => $url,
             // version will be auto-parsed from URL inside downloadAndExtract()
         ];
-    } else {
-        if (!isset($deps[$packageName])) {
-            echo "Package $packageName not found in deps.json\n";
-            exit(1);
-        }
-        $info = $deps[$packageName];
+
+        $info = $deps[$pkg];
+
+        downloadAndExtract($packageName, $info, $libDir, $lock, $lockData, false);
+
+        // Save to lock file after install
+        file_put_contents($lockFile, json_encode($lockData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
-
-    downloadAndExtract($packageName, $info, $libDir, $lock, $lockData, false);
-
-    // Save to lock file after install
-    file_put_contents($lockFile, json_encode($lockData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
     exit(0);
-}
-if ($arg1 === '--update' && $arg2) {
-    if (isset($deps[$arg2])) {
-        downloadAndExtract($arg2, $deps[$arg2], $libDir, $lockData, true);
+} elseif ($cmd === '--update' && $pkg) {
+    if (isset($deps[$pkg])) {
+        downloadAndExtract($pkg, $deps[$pkg], $libDir, $lockData, true);
     } else {
-        echo "Package $arg2 not found in deps.json\n";
+        echo "Package $pkg not found in deps.json\n";
     }
-} elseif ($arg1 === '--update') {
+} elseif ($cmd === '--update') {
     foreach ($deps as $name => $info) {
         downloadAndExtract($name, $info, $libDir, $lockData, true);
     }
-} elseif ($arg1 === '--uninstall' && $arg2) {
-    uninstallPackage($arg2, $libDir, $lockFile, $lockData);
-} elseif ($arg1 === '--phar') {
+} elseif ($cmd === '--uninstall' && $pkg) {
+    uninstallPackage($pkg, $libDir, $lockFile, $lockData);
+} elseif ($cmd === '--phar') {
     $out = __DIR__ . DIRECTORY_SEPARATOR . "build" . DIRECTORY_SEPARATOR . "bundle.phar";
     if (!is_dir(dirname($out))) mkdir(dirname($out), 0777, true);
     if (file_exists($out)) unlink($out);
