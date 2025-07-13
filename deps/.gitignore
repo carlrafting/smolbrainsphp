@@ -1,3 +1,4 @@
 vendor/
 build/
 deps.lock
+deps.json
