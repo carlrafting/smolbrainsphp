@@ -1,4 +1,4 @@
-# PHP Static Package Manager (spm)
+# PHP Static Package Manager (cli)
 
 A minimal, composer-free PHP package manager supporting versioned static packages with optional features like Git exclusions and PHAR bundling.
 
@@ -20,7 +20,7 @@ A minimal, composer-free PHP package manager supporting versioned static package
     ├─ getdeps.php        # Package installer/updater and PHAR builder
     ├─ autoload.php       # Autoloader generated from deps.lock
     ├─ main.php           # PHAR CLI entry point
-    ├─ spm                # CLI wrapper script
+    ├─ cli                # CLI wrapper script
     ├─ vendor/            # Downloaded packages, versioned folders
     └─ build/             # Output PHAR archive(s)
 ```
@@ -56,14 +56,14 @@ Example:
 
 ### 2. Install or update packages
 
-Use the CLI wrapper `spm`:
+Use the CLI wrapper `cli`:
 
 ```
-./spm install                   # Download and extract all dependencies
-./spm install vendor/pkg <url>  # Install package from url with given vendor/pkg
-./spm update                    # Force update all packages
-./spm update vendor/pkg         # Update one specific package
-./spm phar                      # Build PHAR archive with custom stub
+./cli install                   # Download and extract all dependencies
+./cli install vendor/pkg <url>  # Install package from url with given vendor/pkg
+./cli update                    # Force update all packages
+./cli update vendor/pkg         # Update one specific package
+./cli phar                      # Build PHAR archive with custom stub
 ```
 
 ### 3. Autoloading
@@ -84,7 +84,7 @@ The autoloader maps package namespaces based on folder names and versions locked
 Build a PHAR bundle of your app and dependencies with:
 
 ```bash
-./spm phar
+./cli phar
 ```
 
 - Output: `build/bundle.phar`
